@@ -1,0 +1,9 @@
+# फ़ॉन्ट कभी commit न हों (Kruti Dev और उससे बने फ़ॉन्ट)
+*.ttf
+*.otf
+*.ttc
+*.woff
+*.woff2
+*.fea
+__pycache__/
+dist/

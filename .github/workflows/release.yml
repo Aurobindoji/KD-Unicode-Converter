@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Make sure no font is in the repo
+        run: |
+          if git ls-files | grep -Ei '\.(ttf|otf|ttc|woff2?)$'; then echo "font file in repo"; exit 1; fi
+
+      - name: Install build tools
+        run: python -m pip install -r requirements.txt pyinstaller
+
+      - name: Fetch Arimo (SIL OFL 1.1) for Latin letters
+        run: |
+          mkdir fonts
+          curl -sSfL -o fonts/Arimo.ttf "https://github.com/google/fonts/raw/main/ofl/arimo/Arimo%5Bwght%5D.ttf"
+          curl -sSfL -o fonts/Arimo-OFL.txt "https://github.com/google/fonts/raw/main/ofl/arimo/OFL.txt"
+
+      - name: Build exe
+        run: |
+          python -m PyInstaller --noconfirm --onefile --windowed \
+            --name KD-Unicode-Converter --add-data "fonts;fonts" kd_unicode_app.py
+
+      - name: Package
+        run: |
+          name="KD-Unicode-Converter-${GITHUB_REF_NAME}"
+          mkdir "$name"
+          cp dist/KD-Unicode-Converter.exe README.md LICENSE fonts/Arimo-OFL.txt \
+             krutidev_to_unicode_font.py kd_unicode_app.py "$name/"
+          7z a -tzip "$name.zip" "$name" > /dev/null
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/KD-Unicode-Converter.exe \
+            "KD-Unicode-Converter-${GITHUB_REF_NAME}.zip" \
+            --title "KD Unicode Converter $GITHUB_REF_NAME" \
+            --notes-file .github/release-notes.md
